@@ -1,4 +1,4 @@
-module go-ratomic
+module github.com/rolancia/go-ratomic
 
 go 1.15
 

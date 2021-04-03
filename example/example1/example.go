@@ -3,14 +3,15 @@ package main
 import (
 	"context"
 	"fmt"
-	"go-ratomic/ratomic"
+	"github.com/rolancia/go-ratomic/ratomic"
+	"github.com/rolancia/go-ratomic/ratomic/driver"
 	"time"
 )
 
 func main() {
 	ctx := context.Background()
 
-	localDriver := ratomic.NewLocalDriver("lock", 5*time.Millisecond)
+	localDriver := driver.NewLocalDriver("lock", 5*time.Millisecond)
 	ctx = ratomic.WithRatomic(ctx, localDriver, ratomic.RetryConfig{
 		NumRetry: 5,
 		Delay:    1000 * time.Millisecond,
