@@ -16,7 +16,7 @@ func main() {
 		Delay:    1000 * time.Millisecond,
 	})
 
-	var syncVarKey ratomic.LockKey = "user1"
+	var syncVarKey = "user1"
 
 	// first locking
 	err := ratomic.Lock(ctx, syncVarKey)

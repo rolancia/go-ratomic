@@ -6,18 +6,16 @@ import (
 	"time"
 )
 
-type LockKey string
-
 type LockKeyPrefix string
 
-func (kPre LockKeyPrefix) Merge(key LockKey) LockKey {
-	return LockKey(fmt.Sprintf("%s.%s", kPre, key))
+func (kPre LockKeyPrefix) Merge(key string) string {
+	return fmt.Sprintf("%s.%s", kPre, key)
 }
 
 type Driver interface {
 	KeyPrefix() LockKeyPrefix
-	MSetNX(keys []LockKey) (int64, *DriverError)
-	MDel(keys []LockKey) (int64, *DriverError)
+	MSetNX(keys ...string) (int64, *DriverError)
+	Del(keys ...string) (int64, *DriverError)
 }
 
 //
@@ -26,7 +24,7 @@ func NewLocalDriver(keyPrefix LockKeyPrefix, networkLatency time.Duration) *Loca
 		NetworkLatency: networkLatency,
 
 		keyPrefix: keyPrefix,
-		locks:     map[LockKey]bool{},
+		locks:     map[string]bool{},
 	}
 }
 
@@ -35,7 +33,7 @@ type LocalDriver struct {
 
 	keyPrefix LockKeyPrefix
 
-	locks   map[LockKey]bool
+	locks   map[string]bool
 	muLocks sync.Mutex
 }
 
@@ -44,7 +42,7 @@ func (dri *LocalDriver) KeyPrefix() LockKeyPrefix {
 }
 
 // to get lock. dummy of Redis MSetNX
-func (dri *LocalDriver) MSetNX(keys []LockKey) (int64, *DriverError) {
+func (dri *LocalDriver) MSetNX(keys ...string) (int64, *DriverError) {
 	dri.waitForLatency()
 	ok := true
 
@@ -70,8 +68,8 @@ func (dri *LocalDriver) MSetNX(keys []LockKey) (int64, *DriverError) {
 	return 1, nil
 }
 
-// to release lock. dummy of Redis MDel
-func (dri *LocalDriver) MDel(keys []LockKey) (int64, *DriverError) {
+// to release lock. dummy of Redis Del
+func (dri *LocalDriver) Del(keys ...string) (int64, *DriverError) {
 	dri.waitForLatency()
 	var numDel int64 = 0
 

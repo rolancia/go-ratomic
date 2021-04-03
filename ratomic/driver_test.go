@@ -9,14 +9,18 @@ import (
 func TestNewLocalDriver(t *testing.T) {
 	ld := NewLocalDriver("lock", 3*time.Millisecond)
 
-	key := LockKey("tae")
+	key := "tae"
 
 	for i := 0; i < 10; i++ {
-		assert.False(t, isAlreadyLocked(ld.MSetNX(key)))
+		num, _ := ld.MSetNX(key)
+		assert.False(t, isAlreadyLocked(num))
 		for j := 0; j < 100; j++ {
-			assert.True(t, isAlreadyLocked(ld.MSetNX(key)))
+			num, _ = ld.MSetNX(key)
+			assert.True(t, isAlreadyLocked(num))
 		}
-		assert.True(t, isReleaseSuccess(ld.MDel(key)))
-		assert.False(t, isReleaseSuccess(ld.MDel(key)))
+		num, _ = ld.Del(key)
+		assert.True(t, isReleaseSuccess(num))
+		num, _ = ld.Del(key)
+		assert.False(t, isReleaseSuccess(num))
 	}
 }

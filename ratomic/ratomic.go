@@ -50,10 +50,10 @@ func retryConfig(ctx context.Context) RetryConfig {
 
 // obtain locks.
 // atomic, key order not matter if you use Redis.
-func Lock(ctx context.Context, keys ...LockKey) *RatomicError {
+func Lock(ctx context.Context, keys ...string) *RatomicError {
 	dri := driver(ctx)
 
-	keysWithPrefix := make([]LockKey, 0, len(keys))
+	keysWithPrefix := make([]string, 0, len(keys))
 	for i := range keys {
 		keysWithPrefix = append(keysWithPrefix, dri.KeyPrefix().Merge(keys[i]))
 	}
@@ -62,7 +62,7 @@ func Lock(ctx context.Context, keys ...LockKey) *RatomicError {
 
 	var lastError *RatomicError
 	for i := 0; i < 1+retryConf.NumRetry; i++ {
-		replyCnt, err := dri.MSetNX(keysWithPrefix)
+		replyCnt, err := dri.MSetNX(keysWithPrefix...)
 		if err != nil {
 			lastError = newRatomicError(err, false, "")
 			if err.ShouldRetry == false {
@@ -89,10 +89,10 @@ func Lock(ctx context.Context, keys ...LockKey) *RatomicError {
 
 // release locks.
 // atomic, key order not matter if you use Redis.
-func Unlock(ctx context.Context, keys ...LockKey) *RatomicError {
+func Unlock(ctx context.Context, keys ...string) *RatomicError {
 	dri := driver(ctx)
 
-	keysWithPrefix := make([]LockKey, 0, len(keys))
+	keysWithPrefix := make([]string, 0, len(keys))
 	for i := range keys {
 		keysWithPrefix = append(keysWithPrefix, dri.KeyPrefix().Merge(keys[i]))
 	}
@@ -101,11 +101,13 @@ func Unlock(ctx context.Context, keys ...LockKey) *RatomicError {
 
 	var lastError *RatomicError
 	for i := 0; i < 1+retryConf.NumRetry; i++ {
-		replyCnt, err := dri.MDel(keysWithPrefix)
+		replyCnt, err := dri.Del(keysWithPrefix...)
 		if err != nil {
 			lastError = newRatomicError(err, false, "")
 			if err.ShouldRetry == false {
 				break
+			} else {
+				continue
 			}
 		}
 
