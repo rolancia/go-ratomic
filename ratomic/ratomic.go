@@ -78,7 +78,6 @@ func Lock(ctx context.Context, keys ...string) *RatomicError {
 				continue
 			}
 
-			defer ld.Del(keysWithPrefix...)
 			break
 		}
 	}
@@ -121,6 +120,10 @@ func Unlock(ctx context.Context, keys ...string) *RatomicError {
 	}
 
 	retryConf := options(ctx)
+
+	if ld, ok := ctx.Value(hybridDriverCtxKey("")).(Driver); ok {
+		defer ld.Del(keysWithPrefix...)
+	}
 
 	var lastError *RatomicError
 	for i := 0; i < 1+retryConf.NumRetry; i++ {
