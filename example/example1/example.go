@@ -11,7 +11,7 @@ func main() {
 	ctx := context.Background()
 
 	localDriver := ratomic.NewLocalDriver("lock", 5*time.Millisecond)
-	ctx = ratomic.WithRatomic(ctx, localDriver, ratomic.RetryConfig{
+	ctx = ratomic.WithRatomic(ctx, localDriver, ratomic.Options{
 		NumRetry: 5,
 		Delay:    1000 * time.Millisecond,
 	})

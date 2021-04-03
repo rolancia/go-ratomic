@@ -6,29 +6,36 @@ import (
 	"time"
 )
 
-type ratomicCtxKey string
+type optionsCtxKey string
+type hybridDriverCtxKey string
 
 type ratomic struct {
-	driver      Driver
-	retryConfig RetryConfig
+	driver  Driver
+	options Options
 }
 
-func WithRatomic(ctx context.Context, driver Driver, retryConfig RetryConfig) context.Context {
-	newCtx := context.WithValue(ctx, ratomicCtxKey(""), &ratomic{
-		driver:      driver,
-		retryConfig: retryConfig,
+func WithRatomic(ctx context.Context, driver Driver, options Options) context.Context {
+	newCtx := context.WithValue(ctx, optionsCtxKey(""), &ratomic{
+		driver:  driver,
+		options: options,
 	})
+
+	if options.UseFilter {
+		newCtx = context.WithValue(newCtx, hybridDriverCtxKey(""), NewLocalDriver(driver.KeyPrefix(), 0))
+	}
 
 	return newCtx
 }
 
-type RetryConfig struct {
-	NumRetry int
-	Delay    time.Duration
+type Options struct {
+	NumRetry    int
+	Delay       time.Duration
+	UseFilter   bool // first checks local locks if true.
+	FilterDelay time.Duration
 }
 
 func driver(ctx context.Context) Driver {
-	val := ctx.Value(ratomicCtxKey(""))
+	val := ctx.Value(optionsCtxKey(""))
 	if val == nil {
 		panic("WithRatomic must be called.")
 	}
@@ -36,16 +43,18 @@ func driver(ctx context.Context) Driver {
 	return val.(*ratomic).driver
 }
 
-func retryConfig(ctx context.Context) RetryConfig {
-	val := ctx.Value(ratomicCtxKey(""))
+func options(ctx context.Context) Options {
+	val := ctx.Value(optionsCtxKey(""))
 	if val == nil {
-		return RetryConfig{
-			NumRetry: 10,
-			Delay:    50 * time.Millisecond,
+		return Options{
+			NumRetry:    10,
+			Delay:       50 * time.Millisecond,
+			UseFilter:   true,
+			FilterDelay: 10 * time.Millisecond,
 		}
 	}
 
-	return val.(*ratomic).retryConfig
+	return val.(*ratomic).options
 }
 
 // obtain locks.
@@ -58,10 +67,24 @@ func Lock(ctx context.Context, keys ...string) *RatomicError {
 		keysWithPrefix = append(keysWithPrefix, dri.KeyPrefix().Merge(keys[i]))
 	}
 
-	retryConf := retryConfig(ctx)
+	options := options(ctx)
+
+	if ld, ok := ctx.Value(hybridDriverCtxKey("")).(Driver); ok {
+		for i := 0; i < 1+options.NumRetry; i++ {
+			replyCnt, _ := ld.MSetNX(keysWithPrefix...)
+
+			if isAlreadyLocked(replyCnt) {
+				time.Sleep(options.FilterDelay)
+				continue
+			}
+
+			defer ld.Del(keysWithPrefix...)
+			break
+		}
+	}
 
 	var lastError *RatomicError
-	for i := 0; i < 1+retryConf.NumRetry; i++ {
+	for i := 0; i < 1+options.NumRetry; i++ {
 		replyCnt, err := dri.MSetNX(keysWithPrefix...)
 		if err != nil {
 			lastError = newRatomicError(err, false, "")
@@ -72,7 +95,7 @@ func Lock(ctx context.Context, keys ...string) *RatomicError {
 
 		if isAlreadyLocked(replyCnt) {
 			lastError = newRatomicError(ErrBusy, true, "")
-			time.Sleep(retryConf.Delay)
+			time.Sleep(options.Delay)
 			continue
 		} else {
 			// has the lock here.
@@ -97,7 +120,7 @@ func Unlock(ctx context.Context, keys ...string) *RatomicError {
 		keysWithPrefix = append(keysWithPrefix, dri.KeyPrefix().Merge(keys[i]))
 	}
 
-	retryConf := retryConfig(ctx)
+	retryConf := options(ctx)
 
 	var lastError *RatomicError
 	for i := 0; i < 1+retryConf.NumRetry; i++ {
