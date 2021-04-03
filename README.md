@@ -18,3 +18,9 @@ Redis can drive the optimistic locking (not meaning Watch), it does not matter k
 Just give up the faster latency to be easy! you might be using cache/lazy update already if your service needs fast latency.
 
 The point is, Redis MSetNX sets key-value pairs atomically. MSetNX will set all locks or not if we want to get multiple locks.
+
+
+---
+## Drivers
+
+[Redis](https://github.com/rolancia/go-ratomic-redis-driver)
