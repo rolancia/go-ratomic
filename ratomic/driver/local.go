@@ -28,7 +28,7 @@ func (dri *LocalDriver) KeyPrefix() ratomic.LockKeyPrefix {
 	return dri.keyPrefix
 }
 
-// to get lock. dummy of Redis SetNX
+// to get lock. dummy of Redis MSetNX
 func (dri *LocalDriver) MSetNX(keys []ratomic.LockKey) (int64, *ratomic.DriverError) {
 	dri.waitForLatency()
 	ok := true
@@ -55,7 +55,7 @@ func (dri *LocalDriver) MSetNX(keys []ratomic.LockKey) (int64, *ratomic.DriverEr
 	return 1, nil
 }
 
-// to release lock. dummy of Redis Del
+// to release lock. dummy of Redis MDel
 func (dri *LocalDriver) MDel(keys []ratomic.LockKey) (int64, *ratomic.DriverError) {
 	dri.waitForLatency()
 	var numDel int64 = 0
